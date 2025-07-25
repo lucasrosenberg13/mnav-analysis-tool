@@ -126,24 +126,21 @@ def get_eth_price() -> float:
         raise HTTPException(status_code=500, detail="Failed to fetch ETH price")
 
 def get_stock_price(ticker: str) -> float:
-    """Fetch current stock price from TradingView"""
+    """Fetch current stock price from Yahoo Finance REST endpoint"""
     try:
-        url = f"https://www.tradingview.com/symbols/NASDAQ-{ticker}/"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        resp = requests.get(url, headers=headers, timeout=10)
+        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}"
+        resp = requests.get(url, timeout=10)
         resp.raise_for_status()
-        
-        match = re.search(r'"regularMarketPrice":\s*([\d.]+)', resp.text)
-        if match:
-            return float(match.group(1))
-        
-        alt_match = re.search(r'"price":\s*([\d.]+)', resp.text)
-        if alt_match:
-            return float(alt_match.group(1))
-            
-        raise Exception("Price not found in response")
+        data = resp.json()
+        result = data["quoteResponse"]["result"]
+        if not result:
+            raise Exception("No data found for ticker")
+        price = result[0].get("regularMarketPrice")
+        if price is None:
+            raise Exception("Price not found in Yahoo response")
+        return float(price)
     except Exception as e:
-        print(f"[WARN] TradingView fetch failed: {e}")
+        print(f"[WARN] Yahoo Finance fetch failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch {ticker} stock price")
 
 def get_company_data(ticker: str) -> Optional[Tuple[int, str]]:
