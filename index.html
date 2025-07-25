@@ -116,32 +116,29 @@
         MNAV Metrics
     </h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-
-                        <div class="bg-gray-50 rounded-lg p-4 text-center">
-                            <div class="text-sm text-gray-600">ETH Holdings</div>
-                            <div id="eth-holdings" class="text-xl font-bold text-gray-800">0 ETH</div>
-                        </div>
-                        
-                        <div class="bg-gray-50 rounded-lg p-4 text-center">
-                            <div class="text-sm text-gray-600">Diluted Shares</div>
-                            <div id="diluted-shares" class="text-xl font-bold text-gray-800">0</div>
-                        </div>
-                        
-                        <div class="bg-green-50 rounded-lg p-4 text-center">
-                            <div class="text-sm text-green-600">Treasury Value</div>
-                            <div id="treasury-value" class="text-xl font-bold text-green-700">$0</div>
-                        </div>
-                        
-                        <div class="bg-blue-50 rounded-lg p-4 text-center">
-                            <div class="text-sm text-blue-600">MNAV per Share</div>
-                            <div id="mnav-per-share" class="text-xl font-bold text-blue-700">$0.00</div>
-                        </div>
-                    </div>
+        <div class="bg-finance-mid rounded-lg p-4 text-center shadow-md">
+            <div class="text-sm text-finance-steel">ETH Holdings</div>
+            <div id="eth-holdings" class="text-xl font-bold text-finance-light">0 ETH</div>
+        </div>
+        <div class="bg-finance-mid rounded-lg p-4 text-center shadow-md">
+            <div class="text-sm text-finance-steel">Diluted Shares</div>
+            <div id="diluted-shares" class="text-xl font-bold text-finance-light">0</div>
+        </div>
+        <div class="bg-finance-mid rounded-lg p-4 text-center shadow-md">
+            <div class="text-sm text-finance-steel">Treasury Value</div>
+            <div id="treasury-value" class="text-xl font-bold text-finance-light">$0</div>
+        </div>
+        <div class="bg-finance-mid rounded-lg p-4 text-center shadow-md">
+            <div class="text-sm text-finance-steel">MNAV per Share</div>
+            <div id="mnav-per-share" class="text-xl font-bold text-finance-light">$0.00</div>
+        </div>
+    </div>
 
                     <!-- Market Cap and Multiple -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-purple-50 rounded-lg p-6 text-center">
-                            <div class="text-sm text-purple-600">Market Cap</div>
+                        <div class="bg-finance-mid rounded-lg p-6 text-center shadow-md">
+                            <div class="text-sm text-finance-steel">Market Cap</div>
+                            <div id="market-cap" class="text-2xl font-bold text-finance-light">$0</div>
                             <div id="market-cap" class="text-2xl font-bold text-purple-700">$0</div>
                         </div>
                         
@@ -164,12 +161,12 @@
                     <div class="flex flex-col sm:flex-row gap-4 mt-8">
                         <button onclick="showEmailForm()" 
                                 class="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200">
-                            📧 Email Report
+                            Email Report
                         </button>
                         
                         <button onclick="resetApp()" 
                                 class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200">
-                            🔄 Analyze Another
+                            Analyze Another
                         </button>
                     </div>
                 </div>
