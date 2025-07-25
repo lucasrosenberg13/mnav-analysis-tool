@@ -125,22 +125,26 @@ def get_eth_price() -> float:
         print(f"[WARN] CoinGecko API failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch ETH price")
 
+import os
+
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "YOUR_API_KEY")
+
 def get_stock_price(ticker: str) -> float:
-    """Fetch current stock price from Yahoo Finance REST endpoint"""
+    """Fetch current stock price from Alpha Vantage"""
     try:
-        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}"
+        url = (
+            f"https://www.alphavantage.co/query"
+            f"?function=GLOBAL_QUOTE&symbol={ticker}&apikey={ALPHA_VANTAGE_API_KEY}"
+        )
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        result = data["quoteResponse"]["result"]
-        if not result:
-            raise Exception("No data found for ticker")
-        price = result[0].get("regularMarketPrice")
-        if price is None:
-            raise Exception("Price not found in Yahoo response")
-        return float(price)
+        price_str = data.get("Global Quote", {}).get("05. price")
+        if not price_str:
+            raise Exception("Price not found in Alpha Vantage response")
+        return float(price_str)
     except Exception as e:
-        print(f"[WARN] Yahoo Finance fetch failed: {e}")
+        print(f"[WARN] Alpha Vantage fetch failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch {ticker} stock price")
 
 def get_company_data(ticker: str) -> Optional[Tuple[int, str]]:
