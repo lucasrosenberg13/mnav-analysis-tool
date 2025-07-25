@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNAV Analysis Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">MNAV Analysis Tool</h1>
+            <p class="text-gray-600">Real-time Modified Net Asset Value analysis for crypto treasury companies</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <!-- Step 1: Ticker Selection -->
+            <div id="ticker-selection" class="p-8">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Select Ticker</h2>
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button onclick="selectTicker('SBET')" 
+                                class="ticker-btn bg-blue-500 hover:bg-blue-600 text-white font-medium py-4 px-6 rounded-lg transition-colors duration-200 transform hover:scale-105">
+                            <div class="text-lg font-bold">SBET</div>
+                            <div class="text-sm opacity-90">Sharplink Gaming</div>
+                        </button>
+                        
+                        <button onclick="selectTicker('COMING-SOON')" 
+                                class="ticker-btn bg-gray-400 text-white font-medium py-4 px-6 rounded-lg cursor-not-allowed opacity-60">
+                            <div class="text-lg font-bold">More Tickers</div>
+                            <div class="text-sm opacity-90">Coming Soon</div>
+                        </button>
+                        
+                        <button onclick="selectTicker('COMING-SOON')" 
+                                class="ticker-btn bg-gray-400 text-white font-medium py-4 px-6 rounded-lg cursor-not-allowed opacity-60">
+                            <div class="text-lg font-bold">Custom</div>
+                            <div class="text-sm opacity-90">Coming Soon</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Loading State -->
+            <div id="loading-state" class="p-8 text-center hidden">
+                <div class="flex flex-col items-center space-y-4">
+                    <div class="loading-spinner"></div>
+                    <h2 class="text-xl font-semibold text-gray-700">Analyzing <span id="selected-ticker"></span>...</h2>
+                    <div id="loading-steps" class="text-sm text-gray-500 space-y-1">
+                        <div id="step-1" class="opacity-50">✓ Checking current data</div>
+                        <div id="step-2" class="opacity-50">⏳ Looking up latest SEC filings</div>
+                        <div id="step-3" class="opacity-50">⏳ Processing new information</div>
+                        <div id="step-4" class="opacity-50">⏳ Calculating MNAV metrics</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Results -->
+            <div id="results-section" class="hidden">
+                <!-- Market Data Header -->
+                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="text-center">
+                            <div class="text-sm opacity-90">ETH Price</div>
+                            <div id="eth-price" class="text-2xl font-bold">$0.00</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm opacity-90"><span id="ticker-display"></span> Stock Price</div>
+                            <div id="stock-price" class="text-2xl font-bold">$0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MNAV Metrics -->
+                <div class="p-8">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-6">MNAV Metrics</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-gray-50 rounded-lg p-4 text-center">
+                            <div class="text-sm text-gray-600">ETH Holdings</div>
+                            <div id="eth-holdings" class="text-xl font-bold text-gray-800">0 ETH</div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-lg p-4 text-center">
+                            <div class="text-sm text-gray-600">Diluted Shares</div>
+                            <div id="diluted-shares" class="text-xl font-bold text-gray-800">0</div>
+                        </div>
+                        
+                        <div class="bg-green-50 rounded-lg p-4 text-center">
+                            <div class="text-sm text-green-600">Treasury Value</div>
+                            <div id="treasury-value" class="text-xl font-bold text-green-700">$0</div>
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-sm text-blue-600">MNAV per Share</div>
+                            <div id="mnav-per-share" class="text-xl font-bold text-blue-700">$0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Market Cap and Multiple -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-purple-50 rounded-lg p-6 text-center">
+                            <div class="text-sm text-purple-600">Market Cap</div>
+                            <div id="market-cap" class="text-2xl font-bold text-purple-700">$0</div>
+                        </div>
+                        
+                        <div class="bg-orange-50 rounded-lg p-6 text-center">
+                            <div class="text-sm text-orange-600">MNAV Multiple</div>
+                            <div id="mnav-multiple" class="text-2xl font-bold text-orange-700">0.00x</div>
+                            <div class="text-xs text-gray-500 mt-1">Market Cap / Treasury Value</div>
+                        </div>
+                    </div>
+
+                    <!-- Metadata -->
+                    <div class="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>Last Updated: <span id="last-updated" class="font-medium"></span></div>
+                            <div>Filings Processed: <span id="filings-processed" class="font-medium"></span></div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex flex-col sm:flex-row gap-4 mt-8">
+                        <button onclick="showEmailForm()" 
+                                class="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200">
+                            📧 Email Report
+                        </button>
+                        
+                        <button onclick="resetApp()" 
+                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200">
+                            🔄 Analyze Another
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Email Form -->
+            <div id="email-section" class="p-8 hidden">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Send Email Report</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                        <input type="email" id="email-input" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Enter your email address">
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button onclick="sendEmail()" id="send-email-btn"
+                                class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200">
+                            Send Report
+                        </button>
+                        
+                        <button onclick="hideEmailForm()" 
+                                class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div id="error-section" class="p-8 hidden">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold text-red-800 mb-2">Error</h2>
+                    <p id="error-message" class="text-red-700"></p>
+                    <button onclick="resetApp()" 
+                            class="mt-4 bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200">
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-gray-500 text-sm">
+            <p>Powered by SEC EDGAR data and live market prices</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let currentData = null;
+
+        function selectTicker(ticker) {
+            if (ticker === 'COMING-SOON') {
+                alert('More tickers coming soon!');
+                return;
+            }
+            
+            document.getElementById('selected-ticker').textContent = ticker;
+            document.getElementById('ticker-display').textContent = ticker;
+            showSection('loading-state');
+            analyzeStock(ticker);
+        }
+
+        async function analyzeStock(ticker) {
+            try {
+                // Simulate step progression
+                updateLoadingStep(1);
+                await sleep(500);
+                
+                updateLoadingStep(2);
+                await sleep(1000);
+                
+                updateLoadingStep(3);
+                await sleep(800);
+                
+                updateLoadingStep(4);
+                
+                const response = await fetch(`${API_BASE}/analyze/${ticker}`);
+                if (!response.ok) {
+                    throw new Error(`Analysis failed: ${response.statusText}`);
+                }
+                
+                currentData = await response.json();
+                displayResults(currentData);
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                showError(error.message);
+            }
+        }
+
+        function updateLoadingStep(step) {
+            for (let i = 1; i <= 4; i++) {
+                const element = document.getElementById(`step-${i}`);
+                if (i < step) {
+                    element.className = 'text-green-600';
+                    element.innerHTML = element.innerHTML.replace('⏳', '✓');
+                } else if (i === step) {
+                    element.className = 'text-blue-600';
+                    element.innerHTML = element.innerHTML.replace('⏳', '⏳');
+                } else {
+                    element.className = 'opacity-50';
+                }
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('eth-price').textContent = `$${data.eth_price.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('stock-price').textContent = `$${data.stock_price.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('eth-holdings').textContent = `${data.eth_holdings.toLocaleString()} ETH`;
+            document.getElementById('diluted-shares').textContent = data.diluted_shares.toLocaleString();
+            document.getElementById('treasury-value').textContent = `$${data.treasury_value.toLocaleString('en-US', {maximumFractionDigits: 0})}`;
+            document.getElementById('mnav-per-share').textContent = `$${data.mnav_per_share.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('market-cap').textContent = `$${data.market_cap.toLocaleString('en-US', {maximumFractionDigits: 0})}`;
+            document.getElementById('mnav-multiple').textContent = `${data.mnav_multiple.toFixed(2)}x`;
+            document.getElementById('last-updated').textContent = data.last_updated;
+            document.getElementById('filings-processed').textContent = data.filings_processed;
+            
+            showSection('results-section');
+        }
+
+        function showEmailForm() {
+            showSection('email-section');
+        }
+
+        function hideEmailForm() {
+            showSection('results-section');
+        }
+
+        async function sendEmail() {
+            const email = document.getElementById('email-input').value.trim();
+            if (!email) {
+                alert('Please enter an email address');
+                return;
+            }
+
+            if (!currentData) {
+                alert('No data to send');
+                return;
+            }
+
+            const sendBtn = document.getElementById('send-email-btn');
+            const originalText = sendBtn.textContent;
+            sendBtn.textContent = 'Sending...';
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        mnav_data: currentData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Email sending failed: ${response.statusText}`);
+                }
+
+                alert('Email sent successfully!');
+                document.getElementById('email-input').value = '';
+                hideEmailForm();
+                
+            } catch (error) {
+                console.error('Email error:', error);
+                alert(`Failed to send email: ${error.message}`);
+            } finally {
+                sendBtn.textContent = originalText;
+                sendBtn.disabled = false;
+            }
+        }
+
+        function resetApp() {
+            currentData = null;
+            document.getElementById('email-input').value = '';
+            
+            // Reset loading steps
+            for (let i = 1; i <= 4; i++) {
+                const element = document.getElementById(`step-${i}`);
+                element.className = 'opacity-50';
+                element.innerHTML = element.innerHTML.replace('✓', '⏳');
+            }
+            
+            showSection('ticker-selection');
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            showSection('error-section');
+        }
+
+        function showSection(sectionId) {
+            const sections = ['ticker-selection', 'loading-state', 'results-section', 'email-section', 'error-section'];
+            sections.forEach(id => {
+                const element = document.getElementById(id);
+                if (id === sectionId) {
+                    element.classList.remove('hidden');
+                    element.classList.add('fade-in');
+                } else {
+                    element.classList.add('hidden');
+                    element.classList.remove('fade-in');
+                }
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            showSection('ticker-selection');
+        });
+    </script>
+</body>
+</html>
