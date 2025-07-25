@@ -41,25 +41,18 @@
             <div id="ticker-selection" class="p-8">
                 <h2 class="text-2xl font-semibold text-gray-800 mb-6">Select Ticker</h2>
                 <div class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <button onclick="selectTicker('SBET')" 
-                                class="ticker-btn bg-blue-500 hover:bg-blue-600 text-white font-medium py-4 px-6 rounded-lg transition-colors duration-200 transform hover:scale-105">
-                            <div class="text-lg font-bold">SBET</div>
-                            <div class="text-sm opacity-90">Sharplink Gaming</div>
-                        </button>
-                        
-                        <button onclick="selectTicker('COMING-SOON')" 
-                                class="ticker-btn bg-gray-400 text-white font-medium py-4 px-6 rounded-lg cursor-not-allowed opacity-60">
-                            <div class="text-lg font-bold">More Tickers</div>
-                            <div class="text-sm opacity-90">Coming Soon</div>
-                        </button>
-                        
-                        <button onclick="selectTicker('COMING-SOON')" 
-                                class="ticker-btn bg-gray-400 text-white font-medium py-4 px-6 rounded-lg cursor-not-allowed opacity-60">
-                            <div class="text-lg font-bold">Custom</div>
-                            <div class="text-sm opacity-90">Coming Soon</div>
-                        </button>
-                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-1 gap-4 justify-center">
+    <button onclick="selectTicker('SBET')" 
+            class="ticker-btn bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white font-medium py-4 px-8 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 11V7a4 4 0 118 0v4m-8 4h8m-8 4h8m-8 0a4 4 0 01-8 0v-4a4 4 0 018 0z" />
+        </svg>
+        <div>
+            <div class="text-lg font-bold">SBET</div>
+            <div class="text-sm opacity-90">Sharplink Gaming</div>
+        </div>
+    </button>
+</div>
                 </div>
             </div>
 
@@ -95,9 +88,14 @@
 
                 <!-- MNAV Metrics -->
                 <div class="p-8">
-                    <h2 class="text-2xl font-semibold text-gray-800 mb-6">MNAV Metrics</h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M11 17a1 1 0 01-1-1v-2.586l-2.293 2.293a1 1 0 01-1.414-1.414l2.293-2.293H7a1 1 0 110-2h2.586l-2.293-2.293a1 1 0 111.414-1.414L11 9.586V7a1 1 0 112 0v2.586l2.293-2.293a1 1 0 111.414 1.414L13.414 11H16a1 1 0 110 2h-2.586l2.293 2.293a1 1 0 01-1.414 1.414L13 14.414V17a1 1 0 11-2 0z" />
+        </svg>
+        MNAV Metrics
+    </h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
                         <div class="bg-gray-50 rounded-lg p-4 text-center">
                             <div class="text-sm text-gray-600">ETH Holdings</div>
                             <div id="eth-holdings" class="text-xl font-bold text-gray-800">0 ETH</div>
