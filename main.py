@@ -1,7 +1,10 @@
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from contextlib import contextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import sqlite3
 import requests
 import re
 from datetime import datetime
@@ -17,55 +20,75 @@ from extractfrompdf import extract_total_eth_holdings, extract_diluted_shares_an
 
 app = FastAPI(title="MNAV Analysis API", version="1.0.0")
 
-# Enable CORS for frontend
+# Enable CORS for frontend (allow all origins for now)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, specify your frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Email settings
+# Email settings - use environment variables in production
 SMTP_SERVER = "in-v3.mailjet.com"
 SMTP_PORT = 587
-MAILJET_USER = "ad6944548828bc7ffc0582ffbb09fcb6"
-MAILJET_PASS = "10a20df16440c695fbd8108d958dba80"
-SENDER_EMAIL = "Jsorkin123@gmail.com"
+MAILJET_USER = os.getenv("MAILJET_USER", "ad6944548828bc7ffc0582ffbb09fcb6")
+MAILJET_PASS = os.getenv("MAILJET_PASS", "10a20df16440c695fbd8108d958dba80")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "Jsorkin123@gmail.com")
+
+# PostgreSQL connection settings
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    # Fallback for Railway auto-generated env vars
+    DATABASE_URL = f"postgresql://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}@{os.getenv('PGHOST')}:{os.getenv('PGPORT')}/{os.getenv('PGDATABASE')}"
+
+@contextmanager
+def get_db_connection():
+    """Context manager for database connections"""
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        yield conn
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise e
+    finally:
+        if conn:
+            conn.close()
 
 # Database initialization
 def init_database():
-    """Initialize SQLite database with required tables"""
-    conn = sqlite3.connect('mnav_data.db')
-    cursor = conn.cursor()
-    
-    # Table to track processed 8-K filings
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS filings_processed (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticker TEXT NOT NULL,
-            accession_number TEXT NOT NULL,
-            filing_date TEXT NOT NULL,
-            filing_url TEXT NOT NULL,
-            shares_added INTEGER DEFAULT 0,
-            eth_holdings INTEGER DEFAULT 0,
-            processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(ticker, accession_number)
-        )
-    ''')
-    
-    # Table to track current company data
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS company_data (
-            ticker TEXT PRIMARY KEY,
-            total_diluted_shares INTEGER NOT NULL,
-            base_shares INTEGER NOT NULL,
-            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
+    """Initialize PostgreSQL database with required tables"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Table to track processed 8-K filings
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS filings_processed (
+                id SERIAL PRIMARY KEY,
+                ticker VARCHAR(10) NOT NULL,
+                accession_number VARCHAR(50) NOT NULL,
+                filing_date DATE NOT NULL,
+                filing_url TEXT NOT NULL,
+                shares_added INTEGER DEFAULT 0,
+                eth_holdings INTEGER DEFAULT 0,
+                processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(ticker, accession_number)
+            )
+        ''')
+        
+        # Table to track current company data
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS company_data (
+                ticker VARCHAR(10) PRIMARY KEY,
+                total_diluted_shares BIGINT NOT NULL,
+                base_shares BIGINT NOT NULL,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
 
 # Pydantic models
 class MNAVResponse(BaseModel):
@@ -87,7 +110,7 @@ class EmailRequest(BaseModel):
 
 class InitializeRequest(BaseModel):
     ticker: str
-    base_diluted_shares: int
+    total_diluted_shares_outstanding: int
 
 # Utility functions
 def get_eth_price() -> float:
@@ -125,70 +148,60 @@ def get_stock_price(ticker: str) -> float:
 
 def get_company_data(ticker: str) -> Optional[Tuple[int, str]]:
     """Get current diluted shares and last update timestamp for a ticker"""
-    conn = sqlite3.connect('mnav_data.db')
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        'SELECT total_diluted_shares, last_updated FROM company_data WHERE ticker = ?',
-        (ticker,)
-    )
-    result = cursor.fetchone()
-    conn.close()
-    
-    return result if result else None
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT total_diluted_shares, last_updated FROM company_data WHERE ticker = %s',
+            (ticker,)
+        )
+        result = cursor.fetchone()
+        return result if result else None
 
 def update_company_data(ticker: str, total_shares: int):
     """Update the total diluted shares for a ticker"""
-    conn = sqlite3.connect('mnav_data.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        INSERT OR REPLACE INTO company_data (ticker, total_diluted_shares, base_shares, last_updated)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    ''', (ticker, total_shares, total_shares))
-    
-    conn.commit()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO company_data (ticker, total_diluted_shares, base_shares, last_updated)
+            VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (ticker) 
+            DO UPDATE SET 
+                total_diluted_shares = EXCLUDED.total_diluted_shares,
+                last_updated = CURRENT_TIMESTAMP
+        ''', (ticker, total_shares, total_shares))
+        conn.commit()
 
 def get_last_processed_filing(ticker: str) -> Optional[str]:
     """Get the accession number of the last processed 8-K filing"""
-    conn = sqlite3.connect('mnav_data.db')
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        'SELECT accession_number FROM filings_processed WHERE ticker = ? ORDER BY filing_date DESC LIMIT 1',
-        (ticker,)
-    )
-    result = cursor.fetchone()
-    conn.close()
-    
-    return result[0] if result else None
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT accession_number FROM filings_processed WHERE ticker = %s ORDER BY filing_date DESC LIMIT 1',
+            (ticker,)
+        )
+        result = cursor.fetchone()
+        return result[0] if result else None
 
 def add_processed_filing(ticker: str, accession_number: str, filing_date: str, 
                         filing_url: str, shares_added: int, eth_holdings: int):
     """Add a new processed filing to the database"""
-    conn = sqlite3.connect('mnav_data.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        INSERT OR IGNORE INTO filings_processed 
-        (ticker, accession_number, filing_date, filing_url, shares_added, eth_holdings)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (ticker, accession_number, filing_date, filing_url, shares_added, eth_holdings))
-    
-    conn.commit()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO filings_processed 
+            (ticker, accession_number, filing_date, filing_url, shares_added, eth_holdings)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (ticker, accession_number) DO NOTHING
+        ''', (ticker, accession_number, filing_date, filing_url, shares_added, eth_holdings))
+        conn.commit()
 
 def get_filings_count(ticker: str) -> int:
     """Get the number of processed filings for a ticker"""
-    conn = sqlite3.connect('mnav_data.db')
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT COUNT(*) FROM filings_processed WHERE ticker = ?', (ticker,))
-    result = cursor.fetchone()
-    conn.close()
-    
-    return result[0] if result else 0
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM filings_processed WHERE ticker = %s', (ticker,))
+        result = cursor.fetchone()
+        return result[0] if result else 0
 
 def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
     """
@@ -213,16 +226,15 @@ def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
     # Get current ETH holdings from last processed filing
     current_eth = 0
     if last_processed_accession:
-        conn = sqlite3.connect('mnav_data.db')
-        cursor = conn.cursor()
-        cursor.execute(
-            'SELECT eth_holdings FROM filings_processed WHERE ticker = ? AND accession_number = ?',
-            (ticker, last_processed_accession)
-        )
-        result = cursor.fetchone()
-        conn.close()
-        if result:
-            current_eth = result[0]
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT eth_holdings FROM filings_processed WHERE ticker = %s AND accession_number = %s',
+                (ticker, last_processed_accession)
+            )
+            result = cursor.fetchone()
+            if result:
+                current_eth = result[0]
     
     print(f"[INFO] Current state: {current_total_shares:,} shares, {current_eth:,} ETH, last filing: {last_processed_accession}")
     
@@ -315,8 +327,11 @@ def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    init_database()
-    print("[INFO] Database initialized")
+    try:
+        init_database()
+        print("[INFO] PostgreSQL database initialized")
+    except Exception as e:
+        print(f"[ERROR] Database initialization failed: {e}")
 
 @app.post("/api/initialize/{ticker}")
 async def initialize_ticker(ticker: str, request: InitializeRequest):
@@ -330,12 +345,12 @@ async def initialize_ticker(ticker: str, request: InitializeRequest):
         raise HTTPException(status_code=404, detail=f"Ticker {ticker} not found")
     
     # Initialize company data
-    update_company_data(ticker, request.base_diluted_shares)
+    update_company_data(ticker, request.total_diluted_shares_outstanding)
     
     return {
-        "message": f"Initialized {ticker} with {request.base_diluted_shares:,} base diluted shares",
+        "message": f"Initialized {ticker} with {request.total_diluted_shares_outstanding:,} base diluted shares",
         "ticker": ticker,
-        "base_shares": request.base_diluted_shares
+        "base_shares": request.total_diluted_shares_outstanding
     }
 
 @app.get("/api/analyze/{ticker}", response_model=MNAVResponse)
@@ -438,7 +453,7 @@ async def get_ticker_status(ticker: str):
         "initialized": True,
         "ticker": ticker,
         "total_diluted_shares": total_shares,
-        "last_updated": last_updated,
+        "last_updated": str(last_updated),
         "filings_processed": filings_count,
         "last_filing_accession": last_filing
     }
@@ -450,4 +465,5 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
