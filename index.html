@@ -60,7 +60,7 @@
         <div class="bg-finance-mid rounded-2xl shadow-xl overflow-hidden">
             <!-- Step 1: Ticker Selection -->
             <div id="ticker-selection" class="p-8">
-                <h2 class="text-2xl font-semibold text-gray-800 mb-6">Select Ticker</h2>
+                <h2 class="text-2xl font-semibold text-finance-light mb-6 text-center">Select Ticker</h2>
                 <div class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-1 gap-4 justify-center">
     <button onclick="selectTicker('SBET')" 
@@ -83,32 +83,32 @@
                     <div class="loading-spinner"></div>
                     <h2 class="text-xl font-semibold text-finance-steel">Analyzing <span id="selected-ticker"></span>...</h2>
                     <div id="loading-steps" class="text-sm text-finance-light space-y-1">
-                        <div id="step-1" class="opacity-50">✓ Checking current data</div>
-                        <div id="step-2" class="opacity-50">Looking up latest SEC filings</div>
-                        <div id="step-3" class="opacity-50">Processing new information</div>
-                        <div id="step-4" class="opacity-50">Calculating MNAV metrics</div>
-                    </div>
+    <div id="step-1" class="opacity-50">✓ Checking current data</div>
+    <div id="step-2" class="opacity-50">✓ Looking up latest SEC filings</div>
+    <div id="step-3" class="opacity-50">✓ Processing new information</div>
+    <div id="step-4" class="opacity-50">✓ Calculating MNAV metrics</div>
+</div>
                 </div>
             </div>
 
             <!-- Step 3: Results -->
             <div id="results-section" class="hidden">
                 <!-- Market Data Header -->
-                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="text-center">
-                            <div class="text-sm opacity-90">ETH Price</div>
-                            <div id="eth-price" class="text-2xl font-bold">$0.00</div>
-                        </div>
-                        <div class="text-center">
-                            <div class="text-sm opacity-90"><span id="ticker-display"></span> Stock Price</div>
-                            <div id="stock-price" class="text-2xl font-bold">$0.00</div>
-                        </div>
-                    </div>
-                </div>
+                <div class="bg-finance-blue text-finance-light p-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="text-center">
+            <div class="text-sm text-finance-steel opacity-90">ETH Price</div>
+            <div id="eth-price" class="text-2xl font-bold">$0.00</div>
+        </div>
+        <div class="text-center">
+            <div class="text-sm text-finance-steel opacity-90"><span id="ticker-display"></span> Stock Price</div>
+            <div id="stock-price" class="text-2xl font-bold">$0.00</div>
+        </div>
+    </div>
+</div>
 
                 <!-- MNAV Metrics -->
-                <div class="p-8">
+                <div class="p-8 bg-finance-mid">
     <h2 class="text-2xl font-semibold text-finance-light mb-6 flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-finance-steel" viewBox="0 0 20 20" fill="currentColor">
             <path d="M11 17a1 1 0 01-1-1v-2.586l-2.293 2.293a1 1 0 01-1.414-1.414l2.293-2.293H7a1 1 0 110-2h2.586l-2.293-2.293a1 1 0 111.414-1.414L11 9.586V7a1 1 0 112 0v2.586l2.293-2.293a1 1 0 111.414 1.414L13.414 11H16a1 1 0 110 2h-2.586l2.293 2.293a1 1 0 01-1.414 1.414L13 14.414V17a1 1 0 11-2 0z" />
