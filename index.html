@@ -4,11 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MNAV Analysis Tool</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'ui-sans-serif', 'system-ui'],
+                    },
+                    colors: {
+                        finance: {
+                            dark: '#0D1B2A',
+                            mid: '#1B263B',
+                            blue: '#415A77',
+                            steel: '#778DA9',
+                            light: '#E0E1DD',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         .loading-spinner {
-            border: 3px solid #f3f4f6;
-            border-top: 3px solid #3b82f6;
+            border: 3px solid #415A77;
+            border-top: 3px solid #E0E1DD;
             border-radius: 50%;
             width: 24px;
             height: 24px;
@@ -27,16 +48,16 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+<body class="bg-finance-dark min-h-screen font-inter">
     <div class="container mx-auto px-4 py-8 max-w-4xl">
         <!-- Header -->
         <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">MNAV Analysis Tool</h1>
-            <p class="text-gray-600">Real-time Modified Net Asset Value analysis for crypto treasury companies!</p>
+            <h1 class="text-4xl font-bold text-finance-light mb-2">MNAV Analysis Tool</h1>
+            <p class="text-finance-steel">Real-time Modified Net Asset Value analysis for crypto treasury companies!</p>
         </div>
 
         <!-- Main Card -->
-        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="bg-finance-mid rounded-2xl shadow-xl overflow-hidden">
             <!-- Step 1: Ticker Selection -->
             <div id="ticker-selection" class="p-8">
                 <h2 class="text-2xl font-semibold text-gray-800 mb-6">Select Ticker</h2>
@@ -60,12 +81,12 @@
             <div id="loading-state" class="p-8 text-center hidden">
                 <div class="flex flex-col items-center space-y-4">
                     <div class="loading-spinner"></div>
-                    <h2 class="text-xl font-semibold text-gray-700">Analyzing <span id="selected-ticker"></span>...</h2>
-                    <div id="loading-steps" class="text-sm text-gray-500 space-y-1">
+                    <h2 class="text-xl font-semibold text-finance-steel">Analyzing <span id="selected-ticker"></span>...</h2>
+                    <div id="loading-steps" class="text-sm text-finance-light space-y-1">
                         <div id="step-1" class="opacity-50">✓ Checking current data</div>
-                        <div id="step-2" class="opacity-50">⏳ Looking up latest SEC filings</div>
-                        <div id="step-3" class="opacity-50">⏳ Processing new information</div>
-                        <div id="step-4" class="opacity-50">⏳ Calculating MNAV metrics</div>
+                        <div id="step-2" class="opacity-50">Looking up latest SEC filings</div>
+                        <div id="step-3" class="opacity-50">Processing new information</div>
+                        <div id="step-4" class="opacity-50">Calculating MNAV metrics</div>
                     </div>
                 </div>
             </div>
@@ -88,8 +109,8 @@
 
                 <!-- MNAV Metrics -->
                 <div class="p-8">
-    <h2 class="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+    <h2 class="text-2xl font-semibold text-finance-light mb-6 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-finance-steel" viewBox="0 0 20 20" fill="currentColor">
             <path d="M11 17a1 1 0 01-1-1v-2.586l-2.293 2.293a1 1 0 01-1.414-1.414l2.293-2.293H7a1 1 0 110-2h2.586l-2.293-2.293a1 1 0 111.414-1.414L11 9.586V7a1 1 0 112 0v2.586l2.293-2.293a1 1 0 111.414 1.414L13.414 11H16a1 1 0 110 2h-2.586l2.293 2.293a1 1 0 01-1.414 1.414L13 14.414V17a1 1 0 11-2 0z" />
         </svg>
         MNAV Metrics
