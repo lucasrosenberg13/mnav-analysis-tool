@@ -110,7 +110,7 @@ class EmailRequest(BaseModel):
 
 class InitializeRequest(BaseModel):
     ticker: str
-    total_diluted_shares_outstanding: int
+    base_diluted_shares: int
 
 # Utility functions
 def get_eth_price() -> float:
