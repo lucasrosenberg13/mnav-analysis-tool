@@ -1,5 +1,4 @@
 import re
-import fitz
 import requests
 import smtplib
 from email.mime.text import MIMEText
