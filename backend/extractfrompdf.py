@@ -119,7 +119,33 @@ def extract_btc_and_shares(text):
 
     if text.lstrip().lower().startswith("<html") or text.lstrip().startswith("<?xml"):
         soup = BeautifulSoup(text, "html.parser")
-        for table in soup.find_all("table") if soup.find_all("table") else [soup]:
+        # --- Find the anchor node for 'Item 8.01 Other Events.' ---
+        anchor = None
+        for tag in soup.find_all(text=True):
+            if tag and isinstance(tag, str):
+                norm_txt = tag.strip().lower().replace("\xa0", " ")
+                if "item 8.01 other events" in norm_txt:
+                    anchor = tag.parent
+                    print(f"[DEBUG] Found anchor for 'Item 8.01 Other Events.': {anchor}")
+                    break
+        if not anchor:
+            print("[DEBUG] Could not find 'Item 8.01 Other Events.' anchor; skipping targeted extraction.")
+            return btc_holdings, shares_sold
+        # --- Collect tables after anchor, before next 'Item' section ---
+        tables_to_check = []
+        node = anchor
+        while node is not None:
+            node = node.find_next_sibling()
+            if node is None:
+                break
+            # Stop at next major 'Item' section
+            if node.get_text(strip=True).lower().startswith("item ") and "other events" not in node.get_text(strip=True).lower():
+                print(f"[DEBUG] Stopping at section: {node.get_text(strip=True)[:40]}")
+                break
+            if node.name == "table":
+                tables_to_check.append(node)
+        print(f"[DEBUG] Found {len(tables_to_check)} tables after 'Item 8.01 Other Events.'")
+        for table in tables_to_check:
             rows = table.find_all("tr")
             # --- Build composite headers from first 2-3 rows ---
             header_matrix = []
