@@ -125,6 +125,9 @@ def extract_btc_and_shares(text):
             rows = table.find_all("tr")
             for row in rows:
                 cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
+                if cells:
+                    print(f"[DEBUG] Table header row candidate: {cells}")
+                    print(f"[DEBUG] Normalized: {[norm(cell) for cell in cells]}")
                 norm_cells = [norm(cell) for cell in cells]
                 # Look for both headers
                 if "aggregate btc holdings" in norm_cells and "shares sold" in norm_cells:
