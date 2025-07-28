@@ -82,7 +82,7 @@ const MarketDataHeader = ({ data, config }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="text-center">
         <div className="text-sm opacity-90">{config.cryptoName} Price</div>
-        <div className="text-2xl font-bold">${data.eth_price.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div className="text-2xl font-bold">${data.crypto_price.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
       </div>
       <div className="text-center">
         <div className="text-sm opacity-90">{data.ticker} Stock Price</div>
@@ -115,7 +115,7 @@ const MNAVMetrics = ({ data, config }) => (
       <MetricCard
         icon={Coins}
         label={`${config.crypto} Holdings`}
-        value={`${data.eth_holdings.toLocaleString()} ${config.crypto}`}
+        value={`${data.crypto_holdings.toLocaleString()} ${data.crypto_type}`}
       />
       <MetricCard
         icon={Building2}

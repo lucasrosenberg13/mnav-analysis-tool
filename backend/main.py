@@ -94,9 +94,10 @@ def init_database():
 # Pydantic models
 class MNAVResponse(BaseModel):
     ticker: str
-    eth_price: float
+    crypto_type: str
+    crypto_price: float
     stock_price: float
-    eth_holdings: int
+    crypto_holdings: int
     diluted_shares: int
     treasury_value: float
     mnav_per_share: float
@@ -398,7 +399,7 @@ async def analyze_ticker(ticker: str):
     
     try:
         # Check for new filings and get current data
-        eth_holdings, diluted_shares = check_and_process_new_filings(ticker)
+        crypto_holdings, diluted_shares = check_and_process_new_filings(ticker)
         
         # Get live prices
         ticker_crypto_map = {
@@ -406,11 +407,12 @@ async def analyze_ticker(ticker: str):
             'MSTR': 'BTC'
         }
         crypto_symbol = ticker_crypto_map.get(ticker)
+        crypto_type = crypto_symbol if crypto_symbol else 'UNKNOWN'
         crypto_price = get_crypto_price(crypto_symbol)
         stock_price = get_stock_price(ticker)
         
         # Calculate metrics
-        treasury_value = eth_holdings * eth_price
+        treasury_value = crypto_holdings * crypto_price
         mnav_per_share = treasury_value / diluted_shares if diluted_shares > 0 else 0
         market_cap = stock_price * diluted_shares if diluted_shares > 0 else 0
         mnav_multiple = market_cap / treasury_value if treasury_value > 0 else 0
@@ -420,9 +422,10 @@ async def analyze_ticker(ticker: str):
         
         return MNAVResponse(
             ticker=ticker,
-            eth_price=crypto_price,
+            crypto_type=crypto_type,
+            crypto_price=crypto_price,
             stock_price=stock_price,
-            eth_holdings=crypto_holdings,
+            crypto_holdings=crypto_holdings,
             diluted_shares=diluted_shares,
             treasury_value=treasury_value,
             mnav_per_share=mnav_per_share,
