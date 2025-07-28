@@ -120,52 +120,60 @@ def extract_btc_and_shares(text):
     if text.lstrip().lower().startswith("<html") or text.lstrip().startswith("<?xml"):
         soup = BeautifulSoup(text, "html.parser")
         for table in soup.find_all("table") if soup.find_all("table") else [soup]:
-            header_row = None
-            header_map = {}
             rows = table.find_all("tr")
-            for row in rows:
+            # --- Build composite headers from first 2-3 rows ---
+            header_matrix = []
+            for row in rows[:3]:
                 cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
-                if cells:
-                    print(f"[DEBUG] Table header row candidate: {cells}")
-                    print(f"[DEBUG] Normalized: {[norm(cell) for cell in cells]}")
-                norm_cells = [norm(cell) for cell in cells]
-                # Look for both headers
-                if "aggregate btc holdings" in norm_cells and "shares sold" in norm_cells:
-                    header_row = cells
-                    header_map = {norm(cell): idx for idx, cell in enumerate(cells)}
-                    print(f"[DEBUG] Found header row: {header_row}")
-                    print(f"[DEBUG] Header map: {header_map}")
-                    break
-            if not header_row:
+                header_matrix.append(cells)
+            if not header_matrix:
                 continue
-            # Extract Shares Sold
-            if "shares sold" in header_map:
-                for row in rows:
+            max_cols = max(len(row) for row in header_matrix)
+            composite_headers = []
+            for col in range(max_cols):
+                col_header = " ".join(header_matrix[row][col] if col < len(header_matrix[row]) else "" for row in range(len(header_matrix)))
+                composite_headers.append(norm(col_header))
+            print(f"[DEBUG] Composite headers: {composite_headers}")
+            # Map normalized composite headers to column indices
+            header_map = {h: idx for idx, h in enumerate(composite_headers)}
+            # --- Extract BTC Holdings ---
+            btc_col = None
+            for h, idx in header_map.items():
+                if "aggregatebtcholdings" in h:
+                    btc_col = idx
+                    print(f"[DEBUG] Found BTC Holdings column at idx {btc_col}: {h}")
+                    break
+            if btc_col is not None:
+                # Find first plausible data row (skip header rows)
+                for row in rows[3:]:
                     cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
-                    if not cells or len(cells) <= header_map["shares sold"]:
+                    if not cells or len(cells) <= btc_col:
                         continue
-                    if norm(cells[0]) == "common atm":
-                        share_cell = cells[header_map["shares sold"]]
-                        m = re.search(r"([\\d,]+)", share_cell)
-                        if m:
-                            shares_sold = int(m.group(1).replace(",", ""))
-                            print(f"[DEBUG] Extracted Common ATM shares: {shares_sold}")
-            # Extract BTC Holdings
-            if "aggregate btc holdings" in header_map:
-                col_idx = header_map["aggregate btc holdings"]
-                for row in rows:
-                    cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
-                    if not cells or len(cells) <= col_idx:
-                        continue
-                    btc_candidate = cells[col_idx]
-                    # Accept if it's a plausible number and not a header/footer
-                    m = re.search(r"([\\d,]+)", btc_candidate)
+                    btc_candidate = cells[btc_col]
+                    m = re.search(r"([\d,]+)", btc_candidate)
                     if m and btc_candidate.strip():
-                        # Optionally: check that most other cells are empty or ignorable
-                        nonempty = [c for i, c in enumerate(cells) if i != col_idx and c.strip() and not re.match(r'^[\\$\\,\\.\\d\\s]+$', c.strip())]
-                        if not nonempty:
-                            btc_holdings = int(m.group(1).replace(",", ""))
-                            print(f"[DEBUG] Extracted Aggregate BTC Holdings: {btc_holdings}")
+                        btc_holdings = int(m.group(1).replace(",", ""))
+                        print(f"[DEBUG] Extracted Aggregate BTC Holdings: {btc_holdings}")
+                        break
+            # --- Extract Shares Sold (legacy logic, if needed) ---
+            shares_col = None
+            for h, idx in header_map.items():
+                if "sharessold" in h:
+                    shares_col = idx
+                    print(f"[DEBUG] Found Shares Sold column at idx {shares_col}: {h}")
+                    break
+            if shares_col is not None:
+                for row in rows[3:]:
+                    cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
+                    if not cells or len(cells) <= shares_col:
+                        continue
+                    # Optional: add a more robust row match if needed
+                    share_candidate = cells[shares_col]
+                    m = re.search(r"([\d,]+)", share_candidate)
+                    if m and share_candidate.strip():
+                        shares_sold = int(m.group(1).replace(",", ""))
+                        print(f"[DEBUG] Extracted Shares Sold: {shares_sold}")
+                        break
             if btc_holdings is not None or shares_sold is not None:
                 return btc_holdings, shares_sold
         # Fallback to old logic if not found
