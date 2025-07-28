@@ -127,7 +127,7 @@ def extract_btc_and_shares(text):
                 cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
                 norm_cells = [norm(cell) for cell in cells]
                 # Look for both headers
-                if "aggregatebtcholdings" in norm_cells and "sharessold" in norm_cells:
+                if "aggregate btc holdings" in norm_cells and "shares sold" in norm_cells:
                     header_row = cells
                     header_map = {norm(cell): idx for idx, cell in enumerate(cells)}
                     print(f"[DEBUG] Found header row: {header_row}")
@@ -136,20 +136,20 @@ def extract_btc_and_shares(text):
             if not header_row:
                 continue
             # Extract Shares Sold
-            if "sharessold" in header_map:
+            if "shares sold" in header_map:
                 for row in rows:
                     cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
-                    if not cells or len(cells) <= header_map["sharessold"]:
+                    if not cells or len(cells) <= header_map["shares sold"]:
                         continue
-                    if norm(cells[0]) == "commonatm":
-                        share_cell = cells[header_map["sharessold"]]
+                    if norm(cells[0]) == "common atm":
+                        share_cell = cells[header_map["shares sold"]]
                         m = re.search(r"([\\d,]+)", share_cell)
                         if m:
                             shares_sold = int(m.group(1).replace(",", ""))
                             print(f"[DEBUG] Extracted Common ATM shares: {shares_sold}")
             # Extract BTC Holdings
-            if "aggregatebtcholdings" in header_map:
-                col_idx = header_map["aggregatebtcholdings"]
+            if "aggregate btc holdings" in header_map:
+                col_idx = header_map["aggregate btc holdings"]
                 for row in rows:
                     cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
                     if not cells or len(cells) <= col_idx:
