@@ -23,7 +23,7 @@ app = FastAPI(title="MNAV Analysis API", version="1.0.0")
 # Enable CORS for frontend (allow all origins for now)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=["http://localhost:3000", "https://mnav-analysis-tool.vercel.app/" ],  # In production, specify your frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

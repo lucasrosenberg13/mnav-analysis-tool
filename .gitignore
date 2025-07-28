@@ -76,6 +76,14 @@ mnav_data.db
 .AppleDouble
 .LSOverride
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+
+# Vite/React build output
+dist/
+
 # Windows
 Thumbs.db
 Thumbs.db:encryptable
