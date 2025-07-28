@@ -129,35 +129,43 @@ def extract_btc_and_shares(text):
             if any("btc" in c or "holdings" in c or "common atm" in c for c in cells):
                 header_row = cells
                 break
+        import string
+        def norm(s):
+            return re.sub(r'[^a-z0-9]', '', s.strip().lower())
         header_map = {}
         if header_row:
             for idx, col in enumerate(header_row):
-                header_map[col] = idx
-            print(f"[DEBUG] Table header map: {header_map}")
-        # Now scan data rows for values under these headers
+                header_map[norm(col)] = idx
+            print(f"[DEBUG] Normalized table header map: {header_map}")
+        # Patterns for header matching
+        btc_pat = re.compile(r'aggregate.*btc.*holdings')
+        atm_pat = re.compile(r'common.*atm')
+        # Scan data rows for values under these headers
         for row in soup.find_all("tr"):
             cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
             if not header_row or len(cells) != len(header_row):
                 continue
-            row_map = {header_row[i]: cells[i] for i in range(len(header_row))}
+            row_map = {norm(header_row[i]): cells[i] for i in range(len(header_row))}
             # BTC Holdings
-            for h in header_map:
-                if "aggregate" in h and "btc" in h and "holdings" in h:
-                    val = row_map.get(h, "")
+            for h_norm in header_map:
+                if btc_pat.match(h_norm):
+                    val = row_map.get(h_norm, "")
                     nums = re.findall(r"[\d,]+", val)
                     candidates = [int(n.replace(",", "")) for n in nums if int(n.replace(",", "")) > 10000]
                     if candidates:
                         btc_holdings = max(candidates)
                         print(f"[DEBUG] Table: Aggregate BTC Holdings extracted: {btc_holdings}")
             # Common ATM Shares
-            for h in header_map:
-                if "common atm" in h:
-                    val = row_map.get(h, "")
+            for h_norm in header_map:
+                if atm_pat.match(h_norm):
+                    val = row_map.get(h_norm, "")
                     nums = re.findall(r"[\d,]+", val)
                     candidates = [int(n.replace(",", "")) for n in nums if int(n.replace(",", "")) > 100000]
                     if candidates:
                         shares_sold = max(candidates)
                         print(f"[DEBUG] Table: Common ATM shares extracted: {shares_sold}")
+            if btc_holdings is not None and shares_sold is not None:
+                return btc_holdings, shares_sold
         # Fallback to old logic if not found
         if btc_holdings is None or shares_sold is None:
             # Old logic for robustness
