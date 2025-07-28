@@ -20,7 +20,7 @@ const TICKER_CONFIG = {
 };
 
 // Update this with your Railway URL
-const API_BASE = 'https://web-production-f9705.up.railway.app/api'
+const API_BASE = 'https://web-production-f9705.up.railway.app'
 
 // Loading Spinner Component
 const LoadingSpinner = () => (
