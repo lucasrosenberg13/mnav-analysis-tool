@@ -125,6 +125,27 @@ def get_eth_price() -> float:
         print(f"[WARN] CoinGecko API failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch ETH price")
 
+def get_btc_price() -> float:
+    """Fetch current BTC price from CoinGecko"""
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        params = {"ids": "bitcoin", "vs_currencies": "usd"}
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        return resp.json()["bitcoin"]["usd"]
+    except Exception as e:
+        print(f"[WARN] CoinGecko API failed for BTC: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch BTC price")
+
+def get_crypto_price(crypto_symbol: str) -> float:
+    """Get price for any supported crypto"""
+    if crypto_symbol.upper() == 'ETH':
+        return get_eth_price()
+    elif crypto_symbol.upper() == 'BTC':
+        return get_btc_price()
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported crypto: {crypto_symbol}")
+
 import os
 
 ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "YOUR_API_KEY")
@@ -290,41 +311,52 @@ def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
         print(f"[WARN] Could not download filing text from: {latest_8k_url}")
         return current_eth, current_total_shares
     
-    # Use extractfrompdf.py logic to get ETH holdings and new issued shares
+    # Use extractfrompdf.py logic to get crypto holdings and new issued shares
     print(f"[INFO] Extracting data from filing text...")
-    new_eth_holdings = extract_total_eth_holdings(filing_text)
-    new_issued_shares = extract_diluted_shares_anywhere(filing_text)
-    
-    # Also try backup extraction
-    try:
-        from sec_edgar import extract_eth_and_shares
-        backup_eth, backup_shares = extract_eth_and_shares(filing_text)
-        if not new_eth_holdings and backup_eth:
-            new_eth_holdings = backup_eth
-        if not new_issued_shares and backup_shares:
-            new_issued_shares = backup_shares
-    except:
-        pass
-    
+    ticker_crypto_map = {
+        'SBET': 'ETH',
+        'MSTR': 'BTC'
+    }
+    crypto_type = ticker_crypto_map.get(ticker, 'ETH')
+
+    new_crypto_holdings = None
+    new_issued_shares = None
+
+    if crypto_type == 'ETH':
+        new_crypto_holdings = extract_total_eth_holdings(filing_text)
+        new_issued_shares = extract_diluted_shares_anywhere(filing_text)
+        # Also try backup extraction
+        try:
+            from sec_edgar import extract_eth_and_shares
+            backup_eth, backup_shares = extract_eth_and_shares(filing_text)
+            if not new_crypto_holdings and backup_eth:
+                new_crypto_holdings = backup_eth
+            if not new_issued_shares and backup_shares:
+                new_issued_shares = backup_shares
+        except:
+            pass
+    elif crypto_type == 'BTC':
+        from extractfrompdf import extract_btc_and_shares
+        new_crypto_holdings, new_issued_shares = extract_btc_and_shares(filing_text)
+
     # Update our values
-    if new_eth_holdings:
-        current_eth = new_eth_holdings
-        print(f"[INFO] Updated ETH holdings: {current_eth:,}")
+    if new_crypto_holdings:
+        current_eth = new_crypto_holdings  # For DB compatibility (eth_holdings column)
+        print(f"[INFO] Updated {crypto_type} holdings: {current_eth:,}")
     
     if new_issued_shares:
         # Add new issued shares to our total diluted shares
         current_total_shares += new_issued_shares
         print(f"[INFO] Added {new_issued_shares:,} new shares. Total now: {current_total_shares:,}")
-        
         # Update database with new total
         update_company_data(ticker, current_total_shares)
     
     # Record this filing as processed
     filing_date = datetime.now().strftime('%Y-%m-%d')
     add_processed_filing(ticker, latest_accession, filing_date, latest_8k_url, 
-                        new_issued_shares or 0, new_eth_holdings or 0)
+                        new_issued_shares or 0, new_crypto_holdings or 0)
     
-    print(f"[INFO] Step 4: Updated database. Final values: {current_eth:,} ETH, {current_total_shares:,} shares")
+    print(f"[INFO] Step 4: Updated database. Final values: {crypto_type} holdings: {current_eth:,}, {current_total_shares:,} shares")
     
     return current_eth, current_total_shares
 
@@ -368,7 +400,12 @@ async def analyze_ticker(ticker: str):
         eth_holdings, diluted_shares = check_and_process_new_filings(ticker)
         
         # Get live prices
-        eth_price = get_eth_price()
+        ticker_crypto_map = {
+            'SBET': 'ETH',
+            'MSTR': 'BTC'
+        }
+        crypto_symbol = ticker_crypto_map.get(ticker)
+        crypto_price = get_crypto_price(crypto_symbol)
         stock_price = get_stock_price(ticker)
         
         # Calculate metrics
@@ -382,9 +419,9 @@ async def analyze_ticker(ticker: str):
         
         return MNAVResponse(
             ticker=ticker,
-            eth_price=eth_price,
+            eth_price=crypto_price,
             stock_price=stock_price,
-            eth_holdings=eth_holdings,
+            eth_holdings=crypto_holdings,
             diluted_shares=diluted_shares,
             treasury_value=treasury_value,
             mnav_per_share=mnav_per_share,

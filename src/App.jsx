@@ -10,14 +10,13 @@ const TICKER_CONFIG = {
     description: 'Gaming & Entertainment',
     gradient: 'from-green-500 to-blue-600'
   },
-  // Add more tickers here as you expand
-  // MSTR: {
-  //   name: 'MicroStrategy',
-  //   crypto: 'BTC',
-  //   cryptoName: 'Bitcoin',
-  //   description: 'Business Intelligence',
-  //   gradient: 'from-orange-500 to-yellow-600'
-  // }
+  MSTR: {
+    name: 'MicroStrategy',
+    crypto: 'BTC',
+    cryptoName: 'Bitcoin',
+    description: 'Business Intelligence',
+    gradient: 'from-orange-500 to-yellow-600'
+  }
 };
 
 // Update this with your Railway URL
