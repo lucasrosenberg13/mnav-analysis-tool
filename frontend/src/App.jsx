@@ -273,7 +273,7 @@ const MNAVApp = () => {
       
       setLoadingStep(4);
       
-      const response = await fetch(`${API_BASE}/analyze/${ticker}`);
+      const response = await fetch(`${API_BASE}/api/analyze/${ticker}`);
       if (!response.ok) {
         throw new Error(`Analysis failed: ${response.statusText}`);
       }
@@ -292,7 +292,7 @@ const MNAVApp = () => {
   const sendEmail = async (email) => {
     setEmailLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/email`, {
+      const response = await fetch(`${API_BASE}/api/email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
