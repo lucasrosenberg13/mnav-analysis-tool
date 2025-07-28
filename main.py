@@ -130,21 +130,25 @@ import os
 ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "YOUR_API_KEY")
 
 def get_stock_price(ticker: str) -> float:
-    """Fetch current stock price from Alpha Vantage"""
+    """Fetch current stock price from Finnhub"""
+    import urllib.request
+    import urllib.parse
+    import json
+    FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "YOUR_API_KEY")
     try:
-        url = (
-            f"https://www.alphavantage.co/query"
-            f"?function=GLOBAL_QUOTE&symbol={ticker}&apikey={ALPHA_VANTAGE_API_KEY}"
-        )
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        price_str = data.get("Global Quote", {}).get("05. price")
-        if not price_str:
-            raise Exception("Price not found in Alpha Vantage response")
-        return float(price_str)
+        params = urllib.parse.urlencode({
+            'symbol': ticker,
+            'token': FINNHUB_API_KEY
+        })
+        url = f"https://finnhub.io/api/v1/quote?{params}"
+        with urllib.request.urlopen(url) as response:
+            data = json.loads(response.read().decode())
+            price = data['c']
+            if not price:
+                raise Exception("Price not found in Finnhub response")
+            return float(price)
     except Exception as e:
-        print(f"[WARN] Alpha Vantage fetch failed: {e}")
+        print(f"[WARN] Finnhub fetch failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch {ticker} stock price")
 
 def get_company_data(ticker: str) -> Optional[Tuple[int, str]]:
