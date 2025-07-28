@@ -107,24 +107,18 @@ def extract_diluted_shares_anywhere(text):
 
 # -----------------------------
 # BTC holdings & Common ATM shares extraction for MSTR
-# -----------------------------
+
 def extract_btc_and_shares(text):
-    """
-    Extracts BTC Holdings and Common ATM shares from MSTR 8-K filings.
-    Returns (btc_holdings, shares_sold) as integers if found, otherwise None for each value.
-    Handles both HTML and plain text inputs.
-    """
     import re
     from bs4 import BeautifulSoup
     btc_holdings = None
     shares_sold = None
 
-    # --- HTML input ---
+    def norm(s):
+        return re.sub(r'[^a-z0-9]', '', s.strip().lower())
+
     if text.lstrip().lower().startswith("<html") or text.lstrip().startswith("<?xml"):
         soup = BeautifulSoup(text, "html.parser")
-        def norm(s):
-            return re.sub(r'[^a-z0-9]', '', s.strip().lower())
-        # Find the header row for each table
         for table in soup.find_all("table") if soup.find_all("table") else [soup]:
             header_row = None
             header_map = {}
@@ -132,7 +126,8 @@ def extract_btc_and_shares(text):
             for row in rows:
                 cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
                 norm_cells = [norm(cell) for cell in cells]
-                if "sharessold" in norm_cells or "aggregatebtcholdings" in norm_cells:
+                # Look for both headers
+                if "aggregatebtcholdings" in norm_cells and "sharessold" in norm_cells:
                     header_row = cells
                     header_map = {norm(cell): idx for idx, cell in enumerate(cells)}
                     print(f"[DEBUG] Found header row: {header_row}")
@@ -140,7 +135,7 @@ def extract_btc_and_shares(text):
                     break
             if not header_row:
                 continue
-            # Find shares: row where first cell is 'Common ATM', value in 'Shares Sold' column
+            # Extract Shares Sold
             if "sharessold" in header_map:
                 for row in rows:
                     cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
@@ -148,11 +143,11 @@ def extract_btc_and_shares(text):
                         continue
                     if norm(cells[0]) == "commonatm":
                         share_cell = cells[header_map["sharessold"]]
-                        m = re.search(r"([\d,]+)", share_cell)
+                        m = re.search(r"([\\d,]+)", share_cell)
                         if m:
                             shares_sold = int(m.group(1).replace(",", ""))
                             print(f"[DEBUG] Extracted Common ATM shares: {shares_sold}")
-            # Find BTC: row where cell in 'Aggregate BTC Holdings' column is non-empty and all other cells are blank or contain currency symbols
+            # Extract BTC Holdings
             if "aggregatebtcholdings" in header_map:
                 col_idx = header_map["aggregatebtcholdings"]
                 for row in rows:
@@ -160,55 +155,19 @@ def extract_btc_and_shares(text):
                     if not cells or len(cells) <= col_idx:
                         continue
                     btc_candidate = cells[col_idx]
-                    # Only accept if most other cells are empty or currency
-                    nonempty = [c for i, c in enumerate(cells) if i != col_idx and c.strip() and not re.match(r'^[\$\,\.\d\s]+$', c.strip())]
-                    if btc_candidate.strip() and not nonempty:
-                        m = re.search(r"([\d,]+)", btc_candidate)
-                        if m:
+                    # Accept if it's a plausible number and not a header/footer
+                    m = re.search(r"([\\d,]+)", btc_candidate)
+                    if m and btc_candidate.strip():
+                        # Optionally: check that most other cells are empty or ignorable
+                        nonempty = [c for i, c in enumerate(cells) if i != col_idx and c.strip() and not re.match(r'^[\\$\\,\\.\\d\\s]+$', c.strip())]
+                        if not nonempty:
                             btc_holdings = int(m.group(1).replace(",", ""))
                             print(f"[DEBUG] Extracted Aggregate BTC Holdings: {btc_holdings}")
             if btc_holdings is not None or shares_sold is not None:
                 return btc_holdings, shares_sold
         # Fallback to old logic if not found
         if btc_holdings is None or shares_sold is None:
-            # Old logic for robustness
-            for row in soup.find_all("tr"):
-                cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
-                if shares_sold is None and any("common atm" in c.lower() for c in cells):
-                    for cell in cells:
-                        m = re.search(r"([\d,]+)\s*MSTR Shares", cell)
-                        if m:
-                            candidate = int(m.group(1).replace(",", ""))
-                            if candidate > 100000:
-                                shares_sold = candidate
-                                print(f"[DEBUG] Found plausible Common ATM shares: {shares_sold}")
-                                break
-                if btc_holdings is None:
-                    for cell in cells:
-                        if re.search(r"aggregate.*btc.*holdings", cell, re.IGNORECASE):
-                            all_nums = [int(n.replace(",", "")) for n in re.findall(r"[\d,]+", " ".join(cells))]
-                            plausible = [n for n in all_nums if n > 10000]
-                            print(f"[DEBUG] Aggregate BTC Holdings candidates: {plausible}")
-                            if plausible:
-                                btc_holdings = max(plausible)
-                                break
-                if btc_holdings and shares_sold:
-                    break
-    # --- Plain text fallback ---
-    if shares_sold is None:
-        m = re.search(r"Common ATM\s*([\d,]+)\s*MSTR Shares", text, re.IGNORECASE)
-        if m:
-            candidate = int(m.group(1).replace(",", ""))
-            if candidate > 100000:
-                shares_sold = candidate
-                print(f"[DEBUG] (txt) Found plausible Common ATM shares: {shares_sold}")
-    if btc_holdings is None:
-        # Find all numbers after 'Aggregate BTC Holdings' and pick the largest > 10000
-        matches = re.findall(r"Aggregate BTC Holdings[\s:]*([\d,]+)", text, re.IGNORECASE)
-        candidates = [int(n.replace(",", "")) for n in matches if int(n.replace(",", "")) > 10000]
-        print(f"[DEBUG] (txt) Aggregate BTC Holdings candidates: {candidates}")
-        if candidates:
-            btc_holdings = max(candidates)
+            print("[DEBUG] Fallback extraction triggered")
     return btc_holdings, shares_sold
 
 # -----------------------------
