@@ -121,13 +121,14 @@ def extract_btc_and_shares(text):
         soup = BeautifulSoup(text, "html.parser")
         # --- Find the anchor node for 'Item 8.01 Other Events.' ---
         anchor = None
-        for tag in soup.find_all(text=True):
-            if tag and isinstance(tag, str):
-                norm_txt = tag.strip().lower().replace("\xa0", " ")
-                if "item 8.01 other events" in norm_txt:
-                    anchor = tag.parent
-                    print(f"[DEBUG] Found anchor for 'Item 8.01 Other Events.': {anchor}")
-                    break
+        # Search for the anchor by block tag, joining all text (handles split/formatting)
+        for tag in soup.find_all(['p', 'div', 'span']):
+            full_text = tag.get_text(separator=' ', strip=True).lower().replace('\xa0', ' ')
+            norm_text = re.sub(r'\s+', ' ', full_text)
+            if 'item 8.01 other events' in norm_text:
+                anchor = tag
+                print(f"[DEBUG] Found anchor for 'Item 8.01 Other Events.': {anchor}")
+                break
         if not anchor:
             print("[DEBUG] Could not find 'Item 8.01 Other Events.' anchor; skipping targeted extraction.")
             return btc_holdings, shares_sold
