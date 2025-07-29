@@ -43,10 +43,6 @@ def extract_crypto_and_shares_with_gpt(sec_url, crypto_symbol="ETH", crypto_name
     
     Returns: (shares: int or None, crypto_holdings: int or None)
     """
-    if not client:
-        print("[ERROR] OpenAI client not initialized")
-        return None, None
-        
     response = requests.get(sec_url, headers=HEADERS)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -67,7 +63,7 @@ def extract_crypto_and_shares_with_gpt(sec_url, crypto_symbol="ETH", crypto_name
     )
 
     try:
-        response = client.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
