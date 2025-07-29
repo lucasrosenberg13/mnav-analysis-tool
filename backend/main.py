@@ -100,6 +100,7 @@ def init_database():
             CREATE TABLE IF NOT EXISTS company_data (
                 ticker VARCHAR(10) PRIMARY KEY,
                 total_diluted_shares BIGINT NOT NULL,
+                base_shares BIGINT NOT NULL DEFAULT 0,
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -113,6 +114,21 @@ def init_database():
             print("[INFO] Added total_crypto_holdings column")
         except Exception as e:
             print(f"[INFO] Column migration: {e}")
+        
+        # Fix base_shares column if it exists but is nullable
+        try:
+            cursor.execute('''
+                UPDATE company_data 
+                SET base_shares = total_diluted_shares 
+                WHERE base_shares IS NULL
+            ''')
+            cursor.execute('''
+                ALTER TABLE company_data 
+                ALTER COLUMN base_shares SET NOT NULL
+            ''')
+            print("[INFO] Fixed base_shares column")
+        except Exception as e:
+            print(f"[INFO] Base shares fix: {e}")
         
         conn.commit()
         print("[INFO] Database schema updated")
@@ -350,23 +366,23 @@ def update_company_data(ticker: str, total_shares: int, total_crypto: int = None
         cursor = conn.cursor()
         if total_crypto is not None:
             cursor.execute('''
-                INSERT INTO company_data (ticker, total_diluted_shares, total_crypto_holdings, last_updated)
-                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                INSERT INTO company_data (ticker, total_diluted_shares, base_shares, total_crypto_holdings, last_updated)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT (ticker) 
                 DO UPDATE SET 
                     total_diluted_shares = EXCLUDED.total_diluted_shares,
                     total_crypto_holdings = EXCLUDED.total_crypto_holdings,
                     last_updated = CURRENT_TIMESTAMP
-            ''', (ticker, total_shares, total_crypto))
+            ''', (ticker, total_shares, total_shares, total_crypto))
         else:
             cursor.execute('''
-                INSERT INTO company_data (ticker, total_diluted_shares, last_updated)
-                VALUES (%s, %s, CURRENT_TIMESTAMP)
+                INSERT INTO company_data (ticker, total_diluted_shares, base_shares, last_updated)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT (ticker) 
                 DO UPDATE SET 
                     total_diluted_shares = EXCLUDED.total_diluted_shares,
                     last_updated = CURRENT_TIMESTAMP
-            ''', (ticker, total_shares))
+            ''', (ticker, total_shares, total_shares))
         conn.commit()
 
 def get_last_processed_filing(ticker: str) -> Optional[str]:
