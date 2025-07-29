@@ -15,9 +15,8 @@ from email.mime.text import MIMEText
 
 
 # Import your existing modules
-from sec_edgar import get_latest_8k_url, download_filing_text
 from ticker_utils import get_cik_for_ticker
-from extractfrompdf import extract_total_eth_holdings, extract_diluted_shares_anywhere
+from gpt_extractor import extract_eth_and_shares_with_gpt
 
 app = FastAPI(title="MNAV Analysis API", version="1.0.0")
 
@@ -234,62 +233,59 @@ def get_filings_count(ticker: str) -> int:
 def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
     """
     1) Get our most recent information about SBET
-    2) Look up most recent 8-K filing with "item 8.01 other events" 
+    2) Look up most recent 8-K filing with "item 8.01 other events"
     3) If filing is newer than what we have, process it
     4) Return (current_eth_holdings, total_diluted_shares)
     """
-    print(f"[INFO] Step 1: Getting current data for {ticker}")
-    
-    # Step 1: Get our most recent information about SBET
-    company_data = get_company_data(ticker)
-    if not company_data:
-        raise HTTPException(
-            status_code=404, 
-            detail=f"No data found for {ticker}. Please initialize first."
-        )
-    
-    current_total_shares, last_updated = company_data
-    last_processed_accession = get_last_processed_filing(ticker)
-    
-    # Get current ETH holdings from last processed filing
-    current_eth = 0
-    if last_processed_accession:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'SELECT eth_holdings FROM filings_processed WHERE ticker = %s AND accession_number = %s',
-                (ticker, last_processed_accession)
-            )
-            result = cursor.fetchone()
-            if result:
-                current_eth = result[0]
-    
-    print(f"[INFO] Current state: {current_total_shares:,} shares, {current_eth:,} ETH, last filing: {last_processed_accession}")
-    
-    # Step 2: Look up most recent 8-K filing from SEC
-    print(f"[INFO] Step 2: Looking up latest 8-K filing for {ticker}")
     cik = get_cik_for_ticker(ticker)
-    latest_8k_url = get_latest_8k_url(cik)
-    
+    if not cik:
+        raise HTTPException(status_code=404, detail=f"CIK not found for ticker {ticker}")
+
+    # Find latest 8-K filing URL with Item 8.01 Other Events
+    SEC_API_BASE = "https://data.sec.gov"
+    SEC_DOC_BASE = "https://www.sec.gov"
+    headers = {"User-Agent": "SBET-MNAV-Script/1.0 lucasrosenberg@gmail.com"}
+    padded_cik = str(cik).zfill(10)
+    submissions_url = f"{SEC_API_BASE}/submissions/CIK{padded_cik}.json"
+    resp = requests.get(submissions_url, headers=headers, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+    filings = data.get("filings", {}).get("recent", {})
+    forms = filings.get("form", [])
+    accession_numbers = filings.get("accessionNumber", [])
+    primary_docs = filings.get("primaryDocument", [])
+    filing_dates = filings.get("filingDate", [])
+    latest_8k_url = None
+    accession_number = None
+    filing_date = None
+    for form, acc, doc, date in zip(forms, accession_numbers, primary_docs, filing_dates):
+        if form == "8-K":
+            acc_nodash = acc.replace("-", "")
+            filing_url = f"{SEC_DOC_BASE}/Archives/edgar/data/{int(cik)}/{acc_nodash}/{doc}"
+            resp2 = requests.get(filing_url, headers=headers, timeout=15)
+            resp2.raise_for_status()
+            text = resp2.text
+            if text.lstrip().lower().startswith("<html") or text.lstrip().startswith("<?xml"):
+                soup = BeautifulSoup(text, "html.parser")
+                full_text = soup.get_text(separator=" ", strip=True)
+            else:
+                full_text = text
+            norm_text = re.sub(r"\s+", " ", full_text).lower()
+            if re.search(r"item\s*8\.01.*other events", norm_text):
+                latest_8k_url = filing_url
+                accession_number = acc
+                filing_date = date
+                break
     if not latest_8k_url:
-        print(f"[INFO] No 8-K filings found for {ticker}")
-        return current_eth, current_total_shares
-    
-    # Extract accession number from the latest filing URL
-    # URL format: /data/1981535/000164117225020521/form8-k.htm
-    print(f"[DEBUG] Parsing URL: {latest_8k_url}")
-    
-    accession_match = re.search(r'/(\d{18})/', latest_8k_url)
-    if accession_match:
-        # Convert 18-digit format to standard dashed format
-        acc_num = accession_match.group(1)
-        latest_accession = f"{acc_num[:10]}-{acc_num[10:12]}-{acc_num[12:]}"
-        print(f"[DEBUG] Extracted 18-digit: {acc_num} -> {latest_accession}")
-    else:
-        # Try standard dashed format
-        accession_match = re.search(r'/(\d{10}-\d{2}-\d{6})/', latest_8k_url)
-        if accession_match:
-            latest_accession = accession_match.group(1)
+        raise HTTPException(status_code=404, detail="No recent 8-K with 'Item 8.01 Other Events' found.")
+
+    # Check if this filing has already been processed
+    last_processed = get_last_processed_filing(ticker)
+    if last_processed == accession_number:
+        # Already processed, return current values
+        row = get_company_data(ticker)
+        if row:
+            return row[0], row[1]
             print(f"[DEBUG] Extracted dashed format: {latest_accession}")
         else:
             print(f"[WARN] Could not extract accession number from URL: {latest_8k_url}")
