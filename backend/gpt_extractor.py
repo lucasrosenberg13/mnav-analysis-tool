@@ -2,10 +2,21 @@ import os
 import re
 import requests
 from bs4 import BeautifulSoup
-from openai import OpenAI
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# Initialize OpenAI client with error handling
+def get_openai_client():
+    try:
+        from openai import OpenAI
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        return OpenAI(api_key=api_key)
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize OpenAI client: {e}")
+        return None
+
+# Initialize client
+client = get_openai_client()
 
 HEADERS = {"User-Agent": "SBET-MNAV-Script/1.0 lucasrosenberg@gmail.com"}
 
@@ -39,6 +50,10 @@ def extract_crypto_and_shares_with_gpt(sec_url, crypto_symbol="ETH", crypto_name
     
     Returns: (shares: int or None, crypto_holdings: int or None)
     """
+    if not client:
+        print("[ERROR] OpenAI client not initialized")
+        return None, None
+        
     response = requests.get(sec_url, headers=HEADERS)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -58,12 +73,17 @@ def extract_crypto_and_shares_with_gpt(sec_url, crypto_symbol="ETH", crypto_name
         f"{relevant_text[:12000]}"
     )
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=300,
-    )
-    content = response.choices[0].message.content.strip()
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+        )
+        content = response.choices[0].message.content.strip()
+        print(f"[DEBUG] GPT Response: {content}")
+    except Exception as e:
+        print(f"[ERROR] OpenAI API call failed: {e}")
+        return None, None
 
     # Parse GPT output
     shares = None
