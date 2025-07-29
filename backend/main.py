@@ -80,7 +80,7 @@ def init_database():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
-        # Create filings_processed table
+        # Create filings_processed table (old schema first)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS filings_processed (
                 id SERIAL PRIMARY KEY,
@@ -89,33 +89,42 @@ def init_database():
                 filing_date DATE NOT NULL,
                 filing_url TEXT NOT NULL,
                 shares_added INTEGER DEFAULT 0,
-                crypto_holdings INTEGER DEFAULT 0,
                 processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(ticker, accession_number)
             )
         ''')
+        
+        # Add crypto_holdings column to filings_processed if it doesn't exist
+        try:
+            cursor.execute('''
+                ALTER TABLE filings_processed 
+                ADD COLUMN IF NOT EXISTS crypto_holdings INTEGER DEFAULT 0
+            ''')
+            print("[INFO] Added crypto_holdings column to filings_processed")
+        except Exception as e:
+            print(f"[INFO] Filings table migration: {e}")
         
         # Create company_data table (old schema first)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS company_data (
                 ticker VARCHAR(10) PRIMARY KEY,
                 total_diluted_shares BIGINT NOT NULL,
-                base_shares BIGINT NOT NULL DEFAULT 0,
+                base_shares BIGINT DEFAULT 0,
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
-        # Add total_crypto_holdings column if it doesn't exist (migration)
+        # Add total_crypto_holdings column to company_data if it doesn't exist
         try:
             cursor.execute('''
                 ALTER TABLE company_data 
                 ADD COLUMN IF NOT EXISTS total_crypto_holdings INTEGER DEFAULT 0
             ''')
-            print("[INFO] Added total_crypto_holdings column")
+            print("[INFO] Added total_crypto_holdings column to company_data")
         except Exception as e:
-            print(f"[INFO] Column migration: {e}")
+            print(f"[INFO] Company data migration: {e}")
         
-        # Fix base_shares column if it exists but is nullable
+        # Fix base_shares column if it exists but has NULL values
         try:
             cursor.execute('''
                 UPDATE company_data 
@@ -131,7 +140,7 @@ def init_database():
             print(f"[INFO] Base shares fix: {e}")
         
         conn.commit()
-        print("[INFO] Database schema updated")
+        print("[INFO] Database schema fully updated")
 
 # Pydantic models
 class MNAVResponse(BaseModel):
