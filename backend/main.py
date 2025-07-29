@@ -76,10 +76,11 @@ def get_db_connection():
             conn.close()
 
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables with schema migration"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         
+        # Create filings_processed table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS filings_processed (
                 id SERIAL PRIMARY KEY,
@@ -94,16 +95,27 @@ def init_database():
             )
         ''')
         
+        # Create company_data table (old schema first)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS company_data (
                 ticker VARCHAR(10) PRIMARY KEY,
                 total_diluted_shares BIGINT NOT NULL,
-                total_crypto_holdings INTEGER DEFAULT 0,
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         
+        # Add total_crypto_holdings column if it doesn't exist (migration)
+        try:
+            cursor.execute('''
+                ALTER TABLE company_data 
+                ADD COLUMN IF NOT EXISTS total_crypto_holdings INTEGER DEFAULT 0
+            ''')
+            print("[INFO] Added total_crypto_holdings column")
+        except Exception as e:
+            print(f"[INFO] Column migration: {e}")
+        
         conn.commit()
+        print("[INFO] Database schema updated")
 
 # Pydantic models
 class MNAVResponse(BaseModel):
