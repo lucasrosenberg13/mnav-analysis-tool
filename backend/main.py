@@ -15,6 +15,39 @@ import openai
 
 # Import utilities
 from ticker_utils import get_cik_for_ticker
+from gpt_extractor import extract_crypto_and_shares_with_gpt
+
+# Simple 8-K finder function
+def get_latest_8k_url(cik: str) -> Optional[Tuple[str, str, str]]:
+    """Get the latest 8-K filing URL with Item 8.01"""
+    SEC_API_BASE = "https://data.sec.gov"
+    SEC_DOC_BASE = "https://www.sec.gov"
+    
+    padded_cik = str(cik).zfill(10)
+    submissions_url = f"{SEC_API_BASE}/submissions/CIK{padded_cik}.json"
+    
+    try:
+        resp = requests.get(submissions_url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        filings = data.get("filings", {}).get("recent", {})
+        forms = filings.get("form", [])
+        accession_numbers = filings.get("accessionNumber", [])
+        primary_docs = filings.get("primaryDocument", [])
+        filing_dates = filings.get("filingDate", [])
+        
+        for form, acc, doc, date in zip(forms, accession_numbers, primary_docs, filing_dates):
+            if form == "8-K":
+                acc_nodash = acc.replace("-", "")
+                filing_url = f"{SEC_DOC_BASE}/Archives/edgar/data/{int(cik)}/{acc_nodash}/{doc}"
+                return filing_url, acc, date
+        
+        return None
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch filings for CIK {cik}: {e}")
+        return None
 
 app = FastAPI(title="MNAV Analysis API", version="2.0.0")
 
@@ -34,16 +67,14 @@ MAILJET_USER = os.getenv("MAILJET_USER", "ad6944548828bc7ffc0582ffbb09fcb6")
 MAILJET_PASS = os.getenv("MAILJET_PASS", "10a20df16440c695fbd8108d958dba80")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "Jsorkin123@gmail.com")
 
-# OpenAI setup
-from openai import OpenAI
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# OpenAI setup - handled in gpt_extractor.py
 
 # PostgreSQL setup
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = f"postgresql://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}@{os.getenv('PGHOST')}:{os.getenv('PGPORT')}/{os.getenv('PGDATABASE')}"
 
-# Ticker configuration
+# Ticker configuration - easily expandable for any crypto
 TICKER_CONFIG = {
     'SBET': {
         'name': 'Sharplink Gaming',
@@ -56,7 +87,20 @@ TICKER_CONFIG = {
         'crypto': 'BTC',
         'crypto_name': 'Bitcoin',
         'coingecko_id': 'bitcoin'
-    }
+    },
+    # Easy to add more:
+    # 'EXAMPLE_SOL': {
+    #     'name': 'Example Solana Company',
+    #     'crypto': 'SOL',
+    #     'crypto_name': 'Solana',
+    #     'coingecko_id': 'solana'
+    # },
+    # 'EXAMPLE_DOGE': {
+    #     'name': 'Example Dogecoin Company',
+    #     'crypto': 'DOGE',
+    #     'crypto_name': 'Dogecoin',
+    #     'coingecko_id': 'dogecoin'
+    # }
 }
 
 HEADERS = {"User-Agent": "MNAV-Script/2.0 lucasrosenberg@gmail.com"}
@@ -210,154 +254,6 @@ def get_stock_price(ticker: str) -> float:
         print(f"[ERROR] Finnhub fetch failed for {ticker}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch {ticker} stock price")
 
-def get_latest_8k_url(cik: str) -> Optional[Tuple[str, str, str]]:
-    """Get the latest 8-K filing URL with Item 8.01"""
-    SEC_API_BASE = "https://data.sec.gov"
-    SEC_DOC_BASE = "https://www.sec.gov"
-    
-    padded_cik = str(cik).zfill(10)
-    submissions_url = f"{SEC_API_BASE}/submissions/CIK{padded_cik}.json"
-    
-    try:
-        resp = requests.get(submissions_url, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        
-        filings = data.get("filings", {}).get("recent", {})
-        forms = filings.get("form", [])
-        accession_numbers = filings.get("accessionNumber", [])
-        primary_docs = filings.get("primaryDocument", [])
-        filing_dates = filings.get("filingDate", [])
-        
-        for form, acc, doc, date in zip(forms, accession_numbers, primary_docs, filing_dates):
-            if form == "8-K":
-                acc_nodash = acc.replace("-", "")
-                filing_url = f"{SEC_DOC_BASE}/Archives/edgar/data/{int(cik)}/{acc_nodash}/{doc}"
-                
-                if contains_item_801(filing_url):
-                    return filing_url, acc, date
-        
-        return None
-        
-    except Exception as e:
-        print(f"[ERROR] Failed to fetch filings for CIK {cik}: {e}")
-        return None
-
-def contains_item_801(filing_url: str) -> bool:
-    """Check if filing contains Item 8.01"""
-    try:
-        resp = requests.get(filing_url, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        
-        if filing_url.endswith('.pdf'):
-            return False
-            
-        text = resp.text
-        if text.lstrip().lower().startswith("<html") or text.lstrip().startswith("<?xml"):
-            soup = BeautifulSoup(text, "html.parser")
-            full_text = soup.get_text(separator=" ", strip=True)
-        else:
-            full_text = text
-            
-        norm_text = re.sub(r"\s+", " ", full_text).lower()
-        return bool(re.search(r"item\s*8\.01.*other events", norm_text))
-        
-    except Exception as e:
-        print(f"[WARN] Failed to check Item 8.01 in {filing_url}: {e}")
-        return False
-
-def extract_section_text(filing_url: str) -> str:
-    """Extract relevant section text from filing"""
-    try:
-        resp = requests.get(filing_url, headers=HEADERS, timeout=20)
-        resp.raise_for_status()
-        
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        for elem in soup(['script', 'style']):
-            elem.decompose()
-            
-        text = soup.get_text(separator=' ')
-        clean_text = ' '.join(text.split())
-        
-        # Extract Item 8.01 section
-        pattern = re.compile(
-            r"(Item 8\.01 Other Events)(.*?)(?=Item\s+\d+\.\d+|SIGNATURE|$)",
-            re.IGNORECASE | re.DOTALL
-        )
-        match = pattern.search(clean_text)
-        
-        if match:
-            return match.group(2).strip()
-        else:
-            return clean_text[:12000]
-            
-    except Exception as e:
-        print(f"[ERROR] Failed to extract text from {filing_url}: {e}")
-        return ""
-
-def extract_data_with_gpt(filing_text: str, ticker: str) -> Tuple[Optional[int], Optional[int]]:
-    """Use GPT to extract shares and crypto holdings"""
-    if not filing_text.strip():
-        return None, None
-        
-    config = TICKER_CONFIG.get(ticker.upper())
-    if not config:
-        print(f"[ERROR] Unknown ticker: {ticker}")
-        return None, None
-    
-    crypto_name = config['crypto_name']
-    crypto_symbol = config['crypto']
-    
-    prompt = f"""You are an expert financial analyst. I will provide you with a section of an SEC filing for {ticker}. 
-Please extract the following two pieces of information from the document:
-
-1. The number of Common ATM shares sold (if available).
-2. The aggregate {crypto_name} ({crypto_symbol}) holdings reported by the company (if available).
-
-Please provide your answer in the following format:
-
-Common ATM shares sold: [number or 'Not found']
-Aggregate {crypto_symbol} holdings: [amount or 'Not found']
-
-If either value is not explicitly stated in the document, say 'Not found' for that item. Only use information found in the provided text.
-
-Here is the relevant section of the SEC filing:
-
-{filing_text[:12000]}"""
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-        )
-        content = response.choices[0].message.content.strip()
-        print(f"[DEBUG] GPT Response: {content}")
-        
-        # Parse GPT output
-        shares = None
-        crypto_holdings = None
-        
-        shares_match = re.search(r"Common ATM shares sold:\s*([\d,]+|Not found)", content, re.IGNORECASE)
-        crypto_match = re.search(rf"Aggregate {crypto_symbol} holdings:\s*([\d,]+|Not found)", content, re.IGNORECASE)
-        
-        if shares_match:
-            val = shares_match.group(1).replace(",", "").strip()
-            if val.lower() != "not found" and val.isdigit():
-                shares = int(val)
-                
-        if crypto_match:
-            val = crypto_match.group(1).replace(",", "").strip()
-            if val.lower() != "not found" and val.isdigit():
-                crypto_holdings = int(val)
-        
-        print(f"[DEBUG] Extracted - Shares: {shares}, {crypto_symbol}: {crypto_holdings}")
-        return shares, crypto_holdings
-        
-    except Exception as e:
-        print(f"[ERROR] GPT extraction failed: {e}")
-        return None, None
-
 # Database functions
 def get_company_data(ticker: str) -> Optional[Tuple[int, int, str]]:
     """Get company data"""
@@ -428,7 +324,7 @@ def get_filings_count(ticker: str) -> int:
         return result[0] if result else 0
 
 def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
-    """Main filing processing function"""
+    """Main filing processing function using GPT extractor"""
     print(f"[INFO] Processing filings for {ticker}")
     
     company_data = get_company_data(ticker)
@@ -459,12 +355,20 @@ def check_and_process_new_filings(ticker: str) -> Tuple[int, int]:
     
     print(f"[INFO] Processing new filing: {accession_number}")
     
-    filing_text = extract_section_text(filing_url)
-    if not filing_text:
-        print(f"[WARN] Could not extract text from filing")
-        return current_crypto_holdings, current_total_shares
+    # Get crypto info for this ticker
+    config = TICKER_CONFIG.get(ticker.upper())
+    crypto_symbol = config['crypto']
+    crypto_name = config['crypto_name']
     
-    shares_sold, new_crypto_holdings = extract_data_with_gpt(filing_text, ticker)
+    # Use the crypto-specific GPT extractor
+    try:
+        shares_sold, new_crypto_holdings = extract_crypto_and_shares_with_gpt(
+            filing_url, crypto_symbol, crypto_name
+        )
+        print(f"[DEBUG] GPT Extracted - Shares: {shares_sold}, {crypto_symbol}: {new_crypto_holdings}")
+    except Exception as e:
+        print(f"[ERROR] GPT extraction failed: {e}")
+        return current_crypto_holdings, current_total_shares
     
     if new_crypto_holdings is not None:
         current_crypto_holdings = new_crypto_holdings
