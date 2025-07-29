@@ -2,21 +2,14 @@ import os
 import re
 import requests
 from bs4 import BeautifulSoup
+import openai
 
-# Initialize OpenAI client with error handling
-def get_openai_client():
-    try:
-        from openai import OpenAI
-        api_key = os.getenv('OPENAI_API_KEY')
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
-        return OpenAI(api_key=api_key)
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize OpenAI client: {e}")
-        return None
 
-# Initialize client
-client = get_openai_client()
+api_key = os.getenv('OPENAI_API_KEY')
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+openai.api_key = api_key
 
 HEADERS = {"User-Agent": "SBET-MNAV-Script/1.0 lucasrosenberg@gmail.com"}
 
