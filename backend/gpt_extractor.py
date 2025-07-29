@@ -9,7 +9,7 @@ api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     raise ValueError("OPENAI_API_KEY environment variable is not set")
 
-client = OpenAI(api_key-api_key)
+client = OpenAI(api_key=api_key)
 
 HEADERS = {"User-Agent": "SBET-MNAV-Script/1.0 lucasrosenberg@gmail.com"}
 
