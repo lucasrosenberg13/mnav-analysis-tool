@@ -2,14 +2,14 @@ import os
 import re
 import requests
 from bs4 import BeautifulSoup
-import openai
+from openai import OpenAI
 
 
 api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     raise ValueError("OPENAI_API_KEY environment variable is not set")
 
-openai.api_key = api_key
+client = OpenAI(api_key-api_key)
 
 HEADERS = {"User-Agent": "SBET-MNAV-Script/1.0 lucasrosenberg@gmail.com"}
 
@@ -63,7 +63,7 @@ def extract_crypto_and_shares_with_gpt(sec_url, crypto_symbol="ETH", crypto_name
     )
 
     try:
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
