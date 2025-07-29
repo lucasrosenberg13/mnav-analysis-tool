@@ -35,7 +35,8 @@ MAILJET_PASS = os.getenv("MAILJET_PASS", "10a20df16440c695fbd8108d958dba80")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "Jsorkin123@gmail.com")
 
 # OpenAI setup
-openai.api_key = os.getenv('OPENAI_API_KEY')
+from openai import OpenAI
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 # PostgreSQL setup
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -325,7 +326,7 @@ Here is the relevant section of the SEC filing:
 {filing_text[:12000]}"""
 
     try:
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
