@@ -10,4 +10,4 @@ COPY . .
 EXPOSE 8000
 
 # Use python main.py since it already handles PORT correctly
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
