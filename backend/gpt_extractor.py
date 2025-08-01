@@ -6,7 +6,7 @@ from openai import OpenAI
 
 import sys
 print(f"Python version: {sys.version}")
-print(f"OpenAI version: {openai.__version__}")
+print(f"OpenAI version: {OpenAI.__version__}")
 print(f"Environment: {os.environ.get('RAILWAY_ENVIRONMENT', 'unknown')}")
 
 api_key = os.getenv('OPENAI_API_KEY')
