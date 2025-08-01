@@ -80,19 +80,41 @@ def extract_crypto_and_shares_with_gpt(sec_url, crypto_symbol="ETH", crypto_name
     # Parse GPT output
     shares = None
     crypto_holdings = None
-    shares_match = re.search(r"Common ATM shares sold:\s*([\d,]+|Not found)", content, re.IGNORECASE)
-    crypto_match = re.search(rf"Aggregate {crypto_symbol} holdings:\s*([\d,]+|Not found)", content, re.IGNORECASE)
-    
+
+    shares_match = re.search(r"Common ATM shares sold:\s*([\d.,]+(?:\s*(?:k|million|billion))?|Not found)", content, re.IGNORECASE)
+    crypto_match = re.search(rf"Aggregate {crypto_symbol} holdings:\s*([\d.,]+(?:\s*(?:k|million|billion))?|Not found)", content, re.IGNORECASE)
+
     if shares_match:
-        val = shares_match.group(1).replace(",", "").strip()
-        if val.lower() != "not found" and val.isdigit():
-            shares = int(val)
+        val = shares_match.group(1)
+        if val.lower() != "not found":
+            shares = parse_numeric_value(val)
+
     if crypto_match:
-        val = crypto_match.group(1).replace(",", "").strip()
-        if val.lower() != "not found" and val.isdigit():
-            crypto_holdings = int(val)
-    
+        val = crypto_match.group(1)
+        if val.lower() != "not found":
+            crypto_holdings = parse_numeric_value(val)
+
     return shares, crypto_holdings
+
+
+def parse_numeric_value(raw_val: str):
+    val = raw_val.strip().lower().replace(",", "")
+    match = re.match(r"([\d.]+)\s*(million|billion|k)?", val)
+    if not match:
+        return None
+
+    number = float(match.group(1))
+    unit = match.group(2)
+
+    multiplier = {
+        None: 1,
+        "k": 1_000,
+        "million": 1_000_000,
+        "billion": 1_000_000_000
+    }.get(unit, 1)
+
+    return int(number * multiplier)
+
 
 # Keep the old function for backward compatibility
 def extract_eth_and_shares_with_gpt(sec_url):
