@@ -8,7 +8,7 @@ const TICKER_CONFIG = {
     crypto: 'ETH',
     cryptoName: 'Ethereum',
     description: 'Gaming & Entertainment',
-    gradient: 'from-green-500 to-blue-600'
+    gradient: 'from-indigo-500 to-blue-600'
   },
   MSTR: {
     name: 'MicroStrategy',
@@ -16,7 +16,14 @@ const TICKER_CONFIG = {
     cryptoName: 'Bitcoin',
     description: 'Business Intelligence',
     gradient: 'from-orange-500 to-yellow-600'
-  }
+  },
+  UPXI: {
+    name: 'UPEXI INC',
+    crypto: 'SOL',
+    cryptoName: 'Solana',
+    description: 'Business Intelligence',
+    gradient: 'from-emerald-400 to-purple-600'
+  },
 };
 
 // Update this with your Railway URL
