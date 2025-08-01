@@ -88,6 +88,12 @@ TICKER_CONFIG = {
         'crypto_name': 'Bitcoin',
         'coingecko_id': 'bitcoin'
     },
+    'UPXI': {
+        'name': 'UPEXI INC', 
+        'crypto': 'SOL',
+        'crypto_name': 'Solana',
+        'coingecko_id': 'solana'
+    },
     # Easy to add more:
     # 'EXAMPLE_SOL': {
     #     'name': 'Example Solana Company',
